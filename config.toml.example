@@ -1,0 +1,47 @@
+# 股票价格提醒程序配置文件示例
+
+# 数据库路径
+db_path = "stock_alert.db"
+
+# 交易时段配置
+[trading_hours]
+morning_start = "09:30"
+morning_end = "11:30"
+afternoon_start = "13:00"
+afternoon_end = "15:00"
+
+# 时区
+timezone = "Asia/Shanghai"
+
+# 行情源配置 - SSE模式
+[quote_source]
+type = "sse"
+sse_url_template = "https://46.push2.eastmoney.com/api/qt/stock/sse"
+sse_fields = "f58,f107,f57,f43,f59,f169,f170,f152,f46,f60,f44,f45,f47,f48,f19,f532,f39,f161,f49,f171,f50,f86,f600,f601,f154,f84,f85,f168,f108,f116,f167,f164,f92,f71,f117,f292,f113,f114,f115,f119,f120,f121,f122,f296"
+sse_mpi = 1000
+sse_ut = "fa5fd1943c7b386f172d6893dbfba10b"
+enable_polling_fallback = true
+polling_interval = 2
+polling_url_template = "https://push2.eastmoney.com/api/qt/stock/get"
+max_reconnect_attempts = 0
+reconnect_initial_delay = 1
+reconnect_max_delay = 60
+
+# 行情源配置 - 测试模式（示例）
+# [quote_source]
+# type = "test"
+# test_data_file = "test_data.json"
+# update_interval = 1
+# loop_playback = true
+
+# 告警配置
+[alert]
+profit_thresholds = [0.05, 0.10]  # 1级：5%, 2级：10%
+loss_threshold = -0.10  # 亏损阈值：-10%（可选，不设置则不启用）
+
+# 通知配置
+[notify]
+sound_file = null
+sound_min_interval = 1
+log_file = "alerts.log"
+

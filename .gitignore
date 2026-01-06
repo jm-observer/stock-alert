@@ -1,0 +1,9 @@
+target/
+Cargo.lock
+*.db
+*.log
+config.toml
+*.wav
+*.mp3
+
+

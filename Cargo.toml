@@ -1,0 +1,37 @@
+[package]
+name = "stock-alert"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-shell = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.9"
+sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "sqlite", "chrono"] }
+reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "deflate"] }
+futures = "0.3"
+async-trait = "0.1"
+tokio-stream = "0.1"
+eventsource-client = "0.16.0"
+rodio = "0.17"
+toml = "0.8"
+winapi = { version = "0.3", features = ["winuser", "utilapiset"] }
+custom-utils = "0.10.21"
+log = "0.4.29"
+
+[features]
+default = ["custom-utils/logger"]
+custom-utils = ["custom-utils/logger"]
+
+# [patch.crates-io]
+# custom-utils = { path = "../custom-utils" }
+
