@@ -52,6 +52,7 @@ fn main() -> anyhow::Result<()> {
         .invoke_handler(tauri::generate_handler![
             add_stock,
             delete_stock,
+            update_stock,
             list_stocks,
             get_config,
             save_config,

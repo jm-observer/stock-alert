@@ -195,20 +195,74 @@ impl Default for QuoteSourceConfig {
     }
 }
 
+/// 阈值类型：支持比例（百分比）或具体价格
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", content = "value")]
+pub enum ThresholdType {
+    /// 比例模式（整数百分比，如10表示10%）
+    Ratio(i32),
+    /// 价格模式（具体价格，如15.5表示15.5元）
+    Price(f64),
+}
+
+impl std::fmt::Debug for ThresholdType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ThresholdType::Ratio(ratio) => write!(f, "百分比({}%)", ratio),
+            ThresholdType::Price(price) => write!(f, "价格(¥{:.2})", price),
+        }
+    }
+}
+
 /// 告警配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlertConfig {
-    /// 盈利阈值列表（整数百分比，如10表示10%），第一个为1级，第二个为2级
-    pub profit_thresholds: [i32; 2],
-    /// 亏损阈值（整数百分比，如10表示10%）
-    pub loss_threshold: i32,
+    /// 盈利阈值列表，第一个为1级，第二个为2级
+    pub profit_thresholds: [ThresholdType; 2],
+    /// 亏损阈值
+    pub loss_threshold: ThresholdType,
 }
 
 impl Default for AlertConfig {
     fn default() -> Self {
         Self {
-            profit_thresholds: [10, 20], // 10%, 20%
-            loss_threshold: 10, // 默认10%
+            profit_thresholds: [
+                ThresholdType::Ratio(10), // 10%
+                ThresholdType::Ratio(20),  // 20%
+            ],
+            loss_threshold: ThresholdType::Ratio(10), // 默认10%
+        }
+    }
+}
+
+impl ThresholdType {
+    /// 检查是否触发阈值（基于买入价和当前价）
+    pub fn is_triggered(&self, buy_price: f64, current_price: f64, is_profit: bool) -> bool {
+        match self {
+            ThresholdType::Ratio(ratio) => {
+                let ratio_value = *ratio as f64 / 100.0;
+                let pnl_ratio = (current_price - buy_price) / buy_price;
+                if is_profit {
+                    pnl_ratio >= ratio_value
+                } else {
+                    (-pnl_ratio) >= ratio_value
+                }
+            }
+            ThresholdType::Price(price) => {
+                if is_profit {
+                    current_price >= *price
+                } else {
+                    current_price <= *price
+                }
+            }
+        }
+    }
+
+    /// 获取阈值显示值（用于告警消息）
+    pub fn display_value(&self) -> String {
+        match self {
+            ThresholdType::Ratio(ratio) => format!("{}%", ratio),
+            ThresholdType::Price(price) => format!("¥{:.2}", price),
         }
     }
 }

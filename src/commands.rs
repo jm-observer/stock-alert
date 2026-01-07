@@ -37,9 +37,11 @@ pub async fn add_stock(
     code: String,
     name: String,
     buy_price: f64,
-    buy_date: String,
+    profit_threshold1: Option<crate::config::ThresholdType>,
+    profit_threshold2: Option<crate::config::ThresholdType>,
+    loss_threshold: Option<crate::config::ThresholdType>,
 ) -> Result<i64, String> {
-    tauri_app.inner().add_stock(code, name, buy_price, buy_date).await.map_err(|x| x.to_string())
+    tauri_app.inner().add_stock(code, name, buy_price, profit_threshold1, profit_threshold2, loss_threshold).await.map_err(|x| x.to_string())
 }
 
 /// 删除股票持仓
@@ -48,6 +50,21 @@ pub async fn delete_stock(tauri_app: State<'_, TauriApp>, code: String) -> Resul
     tauri_app.inner().delete_stock(code)
         .await
         .map_err(|e| format!("数据库连接失败: {}", e))
+}
+
+/// 更新股票持仓信息（包括阈值）
+#[tauri::command]
+pub async fn update_stock(
+    tauri_app: State<'_, TauriApp>,
+    code: String,
+    buy_price: f64,
+    profit_threshold1: crate::config::ThresholdType,
+    profit_threshold2: crate::config::ThresholdType,
+    loss_threshold: crate::config::ThresholdType,
+) -> Result<bool, String> {
+    tauri_app.inner().update_stock(code, buy_price, profit_threshold1, profit_threshold2, loss_threshold)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 获取所有股票持仓
@@ -86,8 +103,8 @@ pub async fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
 #[tauri::command]
 pub async fn update_alert_thresholds(
     tauri_app: State<'_, TauriApp>,
-    profit_thresholds: [i32; 2],
-    loss_threshold: i32,
+    profit_thresholds: [crate::config::ThresholdType; 2],
+    loss_threshold: crate::config::ThresholdType,
 ) -> Result<(), String> {
     debug!("更新告警阈值: {:?}, {:?}", profit_thresholds, loss_threshold);
     tauri_app

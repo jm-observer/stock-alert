@@ -230,7 +230,7 @@ impl TauriApp {
             "\n收到行情: {} 价格={:.2} 时间={} 交易量={:?}",
             quote.code,
             quote.price,
-            quote.timestamp.format("%Y-%m-%d %H:%M:%S"),
+            quote.timestamp,
             quote.volume
         );
 
@@ -305,9 +305,15 @@ impl TauriApp {
                         crate::models::AlertRule::LossThreshold(_) => "loss_threshold".to_string(),
                         crate::models::AlertRule::ProfitDrawdownHalf => "profit_drawdown_half".to_string(),
                     },
-                    rule_value: match alert.rule {
-                        crate::models::AlertRule::ProfitThreshold(t) => Some(t),
-                        crate::models::AlertRule::LossThreshold(t) => Some(t),
+                    rule_value: match &alert.rule {
+                        crate::models::AlertRule::ProfitThreshold(t) => match t {
+                            crate::config::ThresholdType::Ratio(r) => Some(*r),
+                            crate::config::ThresholdType::Price(p) => Some((*p * 100.0) as i32), // 转换为整数百分比用于显示
+                        },
+                        crate::models::AlertRule::LossThreshold(t) => match t {
+                            crate::config::ThresholdType::Ratio(r) => Some(*r),
+                            crate::config::ThresholdType::Price(p) => Some((*p * 100.0) as i32),
+                        },
                         crate::models::AlertRule::ProfitDrawdownHalf => None,
                     },
                     current_price: alert.current_price,
@@ -352,22 +358,31 @@ impl TauriApp {
         code: String,
         name: String,
         buy_price: f64,
-        buy_date: String,
+        profit_threshold1: Option<crate::config::ThresholdType>,
+        profit_threshold2: Option<crate::config::ThresholdType>,
+        loss_threshold: Option<crate::config::ThresholdType>,
     ) -> Result<i64> {
-        let buy_date = chrono::NaiveDate::parse_from_str(&buy_date, "%Y-%m-%d")?;
-
+        // 获取默认阈值配置
+        let config = self.config.read().await;
+        let default_profit_threshold1 = profit_threshold1.unwrap_or_else(|| config.alert.profit_thresholds[0].clone());
+        let default_profit_threshold2 = profit_threshold2.unwrap_or_else(|| config.alert.profit_thresholds[1].clone());
+        let default_loss_threshold = loss_threshold.unwrap_or_else(|| config.alert.loss_threshold.clone());
+        drop(config);
+        
         let mut position = StockPosition {
             id: None,
             code: code.clone(),
             name,
             buy_price,
-            buy_date,
             current_price: buy_price,
             highest_price_since_buy: buy_price,
             profit_threshold_level1_alerted: false,
             profit_threshold_level2_alerted: false,
             loss_threshold_alerted: false,
             profit_drawdown_half_alerted: false,
+            profit_threshold1: default_profit_threshold1,
+            profit_threshold2: default_profit_threshold2,
+            loss_threshold: default_loss_threshold,
             created_at: Some(chrono::Local::now().naive_local()),
             updated_at: Some(chrono::Local::now().naive_local()),
         };
@@ -376,12 +391,14 @@ impl TauriApp {
             .add_position(&position)
             .await?;
 
-        position.id = Some(id);
-        self.quote_source
-            .subscribe(code.clone(), self.tx.clone())
-            .await?;
-        let mut positions_cache = self.positions.write().await;
-        positions_cache.insert(code, position);
+        if self.scheduler.is_trading_hours()? || self.is_test {
+            position.id = Some(id);
+            let mut positions_cache = self.positions.write().await;
+            positions_cache.insert(code.clone(), position);
+            self.quote_source
+                .subscribe(code, self.tx.clone())
+                .await?;
+        }
 
         Ok(id)
     }
@@ -393,12 +410,41 @@ impl TauriApp {
         self.positions.write().await.remove(&code);
         Ok(true)
     }
+
+    /// 更新股票持仓信息（包括阈值）
+    pub async fn update_stock(
+        &self,
+        code: String,
+        buy_price: f64,
+        profit_threshold1: crate::config::ThresholdType,
+        profit_threshold2: crate::config::ThresholdType,
+        loss_threshold: crate::config::ThresholdType,
+    ) -> Result<bool> {
+        self.storage
+            .update_position_full(&code, buy_price, &profit_threshold1, &profit_threshold2, &loss_threshold)
+            .await?;
+        
+        // 更新内存中的缓存
+        let mut positions_cache = self.positions.write().await;
+        if let Some(position) = positions_cache.get_mut(&code) {
+            position.buy_price = buy_price;
+            position.profit_threshold1 = profit_threshold1;
+            position.profit_threshold2 = profit_threshold2;
+            position.loss_threshold = loss_threshold;
+            position.updated_at = Some(chrono::Local::now().naive_local());
+            position.profit_threshold_level1_alerted = false;
+            position.profit_threshold_level2_alerted = false;
+            position.loss_threshold_alerted = false;
+        }
+        
+        Ok(true)
+    }
     
     /// 更新告警阈值
     pub async fn update_alert_thresholds(
         &self,
-        profit_thresholds: [i32; 2],
-        loss_threshold: i32,
+        profit_thresholds: [crate::config::ThresholdType; 2],
+        loss_threshold: crate::config::ThresholdType,
     ) -> Result<()> {
         let mut config = self.config.write().await;
         config.alert.profit_thresholds = profit_thresholds;

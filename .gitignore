@@ -5,5 +5,5 @@ Cargo.lock
 config.toml
 *.wav
 *.mp3
-
-
+dist
+node_modules

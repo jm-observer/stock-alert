@@ -4,8 +4,7 @@ use crate::config::{QuoteSourceConfig, QuoteSseSourceConfig};
 use crate::models::Quote;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use chrono::{DateTime, TimeZone, Utc};
-use chrono_tz::Asia::Shanghai;
+use chrono::Utc;
 use eventsource_client as es;
 use eventsource_client::Client;
 use futures::TryStreamExt;
@@ -82,7 +81,7 @@ impl SSESource {
     /// details数组中的格式：时间,价格,数量,?,?
     /// 时间格式：HH:MM:SS
     /// 返回所有记录，按时间顺序排序
-    fn parse_quote_from_sse(&self, data: &str, code: &str) -> Vec<(f64, chrono::DateTime<Utc>, f64)> {
+    fn parse_quote_from_sse(&self, data: &str, code: &str) -> Vec<(f64, String, f64)> {
         parse_quote_from_sse(data, code)
     }
 }
@@ -167,14 +166,12 @@ impl QuoteSource for SSESource {
                                                 // 按时间顺序发送每条记录
                                                 for (price, timestamp, volume) in quotes {
                                                     // 转换为本地时区显示
-                                                    let local_time = timestamp.with_timezone(&Shanghai);
                                                     
                                                     debug!(
-                                                        "发送行情: {} 价格={:.2} UTC时间={} 本地时间={} 交易量={:.2}",
+                                                        "发送行情: {} 价格={:.2} UTC时间={} 交易量={:.2}",
                                                         code,
                                                         price,
-                                                        timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
-                                                        local_time.format("%Y-%m-%d %H:%M:%S %Z"),
+                                                        timestamp,
                                                         volume
                                                     );
                                                     
@@ -293,12 +290,11 @@ impl QuoteSource for TestSource {
             loop {
                 for record in &filtered_records {
                     // 解析时间戳
-                    if let Ok(timestamp) = DateTime::parse_from_rfc3339(&record.timestamp) {
                         let quote = Quote {
                             code: record.code.clone(),
                             price: record.price,
                             volume: None, // 测试数据中没有交易量
-                            timestamp: timestamp.with_timezone(&Utc),
+                            timestamp: record.timestamp.clone(),
                         };
 
                         debug!(
@@ -313,9 +309,6 @@ impl QuoteSource for TestSource {
                         }
 
                         sleep(Duration::from_secs(update_interval)).await;
-                    } else {
-                        warn!("解析时间戳失败: {}", record.timestamp);
-                    }
                 }
 
                 if !loop_playback {
@@ -348,7 +341,7 @@ pub fn create_quote_source(config: QuoteSourceConfig) -> Result<Arc<dyn QuoteSou
     /// details数组中的格式：时间,价格,数量,?,?
     /// 时间格式：HH:MM:SS
     /// 返回所有记录，按时间顺序排序
-    fn parse_quote_from_sse(data: &str, code: &str) -> Vec<(f64, chrono::DateTime<Utc>, f64)> {
+    fn parse_quote_from_sse(data: &str, code: &str) -> Vec<(f64, String, f64)> {
         debug!("解析SSE数据 [{}]: {}", code, data);
 
         let mut results = Vec::new();
@@ -361,13 +354,9 @@ pub fn create_quote_source(config: QuoteSourceConfig) -> Result<Arc<dyn QuoteSou
                         return results;
                     }
 
-                    // 获取当前日期（上海时区）
-                    let now_shanghai = chrono::Utc::now().with_timezone(&Shanghai);
-                    let date = now_shanghai.date_naive();
-
                     // 解析所有记录
                     for detail_str in details_array.iter().filter_map(|v| v.as_str()) {
-                        if let Some(record) = parse_detail_record(detail_str, code, date) {
+                        if let Some(record) = parse_detail_record(detail_str, code) {
                             results.push(record);
                         }
                     }
@@ -377,13 +366,11 @@ pub fn create_quote_source(config: QuoteSourceConfig) -> Result<Arc<dyn QuoteSou
 
                     debug!("解析结果 [{}]: 共 {} 条记录，按时间排序", code, results.len());
                     for (i, (price, timestamp, volume)) in results.iter().enumerate() {
-                        let local_time = timestamp.with_timezone(&Shanghai);
                         debug!(
-                            "  记录 {}: 价格={:.2}, UTC时间={}, 本地时间={}, 交易量={:.2}",
+                            "  记录 {}: 价格={:.2}, UTC时间={}, 交易量={:.2}",
                             i + 1,
                             price,
-                            timestamp.format("%Y-%m-%d %H:%M:%S UTC"),
-                            local_time.format("%Y-%m-%d %H:%M:%S %Z"),
+                            timestamp,
                             volume
                         );
                     }
@@ -404,8 +391,7 @@ pub fn create_quote_source(config: QuoteSourceConfig) -> Result<Arc<dyn QuoteSou
 fn parse_detail_record(
     detail_str: &str,
     code: &str,
-    date: chrono::NaiveDate,
-) -> Option<(f64, chrono::DateTime<Utc>, f64)> {
+) -> Option<(f64, String, f64)> {
     // 解析格式：时间,价格,数量,?,?
     let parts: Vec<&str> = detail_str.split(',').collect();
     if parts.len() < 3 {
@@ -424,24 +410,6 @@ fn parse_detail_record(
 
     // 解析时间 HH:MM:SS，如果失败则使用当前时间
     let time_str = parts[0];
-    let timestamp = if let Ok(time) = chrono::NaiveTime::parse_from_str(time_str, "%H:%M:%S") {
-        // 组合日期和时间
-        let datetime = date.and_time(time);
-
-        // 转换为UTC时间
-        // 使用 earliest() 来处理可能的夏令时转换
-        let local_dt = Shanghai
-            .from_local_datetime(&datetime)
-            .earliest()
-            .unwrap_or_else(|| {
-                // 如果本地时间转换失败，使用UTC时间
-                Shanghai.from_utc_datetime(&datetime)
-            });
-        local_dt.with_timezone(&chrono::Utc)
-    } else {
-        warn!("解析时间失败 [{}]: {}，使用当前时间", code, time_str);
-        chrono::Utc::now()
-    };
 
     // 解析数量（股数），如果失败则使用 0.0
     let volume = parts[2].parse::<f64>().unwrap_or_else(|_| {
@@ -449,7 +417,7 @@ fn parse_detail_record(
         0.0
     });
 
-    Some((price, timestamp, volume))
+    Some((price, time_str.to_string(), volume))
 }
 
 #[cfg(test)]
@@ -517,7 +485,7 @@ mod tests {
         
         assert_eq!(results.len(), 3);
         
-        // 验证已按时间排序
+        // 验证已按时间排序（时间戳字符串按字典序排序）
         let (_, ts1, _) = &results[0];
         let (_, ts2, _) = &results[1];
         let (_, ts3, _) = &results[2];
@@ -525,16 +493,10 @@ mod tests {
         assert!(ts1 <= ts2);
         assert!(ts2 <= ts3);
         
-        // 验证第一条是10:22:45
-        let local1 = ts1.with_timezone(&Shanghai);
-        assert_eq!(local1.hour(), 10);
-        assert_eq!(local1.minute(), 22);
-        assert_eq!(local1.second(), 45);
+        // 验证第一条是10:22:45（时间戳字符串包含时间信息）
+        assert!(ts1.contains("10:22:45") || ts1.contains("T10:22:45"));
         
         // 验证最后一条是10:22:51
-        let local3 = ts3.with_timezone(&Shanghai);
-        assert_eq!(local3.hour(), 10);
-        assert_eq!(local3.minute(), 22);
-        assert_eq!(local3.second(), 51);
+        assert!(ts3.contains("10:22:51") || ts3.contains("T10:22:51"));
     }
 }

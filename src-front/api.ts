@@ -8,9 +8,18 @@ export const api = {
     code: string,
     name: string,
     buyPrice: number,
-    buyDate: string
+    profitThreshold1?: import("./types").ThresholdType,
+    profitThreshold2?: import("./types").ThresholdType,
+    lossThreshold?: import("./types").ThresholdType
   ): Promise<number> => {
-    return invoke("add_stock", { code, name, buyPrice, buyDate });
+    return invoke("add_stock", {
+      code,
+      name,
+      buyPrice,
+      profitThreshold1,
+      profitThreshold2,
+      lossThreshold,
+    });
   },
 
   // 删除股票
@@ -22,9 +31,17 @@ export const api = {
   updateStock: async (
     code: string,
     buyPrice: number,
-    buyDate: string
+    profitThreshold1: import("./types").ThresholdType,
+    profitThreshold2: import("./types").ThresholdType,
+    lossThreshold: import("./types").ThresholdType
   ): Promise<boolean> => {
-    return invoke("update_stock", { code, buyPrice, buyDate });
+    return invoke("update_stock", {
+      code,
+      buyPrice,
+      profitThreshold1,
+      profitThreshold2,
+      lossThreshold,
+    });
   },
 
   // 获取所有股票

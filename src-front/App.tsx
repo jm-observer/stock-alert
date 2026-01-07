@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import StockCard from "./components/StockCard";
 import AddStockModal from "./components/AddStockModal";
-import ConfigModal from "./components/ConfigModal";
+import EditStockModal from "./components/EditStockModal";
 import AlertModal from "./components/AlertModal";
 import { api } from "./api";
 import type { StockPosition, AlertEvent, StockUpdateEvent } from "./types";
@@ -11,7 +11,7 @@ import "./App.css";
 function App() {
   const [stocks, setStocks] = useState<StockPosition[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [editingStock, setEditingStock] = useState<StockPosition | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentAlert, setCurrentAlert] = useState<AlertEvent | null>(null);
 
@@ -107,6 +107,11 @@ function App() {
     }
   };
 
+  // 编辑股票
+  const handleEdit = (stock: StockPosition) => {
+    setEditingStock(stock);
+  };
+
 
 
   if (loading) {
@@ -125,9 +130,6 @@ function App() {
           <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
             添加股票
           </button>
-          <button className="btn btn-secondary" onClick={() => setShowConfigModal(true)}>
-            配置
-          </button>
         </div>
       </header>
 
@@ -143,6 +145,7 @@ function App() {
                 key={stock.code}
                 stock={stock}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
               />
             ))}
           </div>
@@ -159,11 +162,13 @@ function App() {
         />
       )}
 
-      {showConfigModal && (
-        <ConfigModal
-          onClose={() => setShowConfigModal(false)}
+      {editingStock && (
+        <EditStockModal
+          stock={editingStock}
+          onClose={() => setEditingStock(null)}
           onSuccess={() => {
-            setShowConfigModal(false);
+            setEditingStock(null);
+            loadStocks();
           }}
         />
       )}

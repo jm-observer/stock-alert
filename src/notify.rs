@@ -52,9 +52,9 @@ impl Notifier {
 
     /// 记录告警日志
     async fn log_alert(&self, event: &AlertEvent) -> anyhow::Result<()> {
-        let rule_str = match event.rule {
-            crate::models::AlertRule::ProfitThreshold(t) => format!("盈利阈值 {}%", t),
-            crate::models::AlertRule::LossThreshold(t) => format!("亏损阈值 {}%", t),
+        let rule_str = match &event.rule {
+            crate::models::AlertRule::ProfitThreshold(t) => format!("盈利阈值 {:?}%", t),
+            crate::models::AlertRule::LossThreshold(t) => format!("亏损阈值 {:?}%", t),
             crate::models::AlertRule::ProfitDrawdownHalf => "盈利回撤过半".to_string(),
         };
 

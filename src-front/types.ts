@@ -1,16 +1,23 @@
+// 阈值类型
+export type ThresholdType =
+  | { type: "Ratio"; value: number } // 比例模式（百分比）
+  | { type: "Price"; value: number }; // 价格模式（具体价格）
+
 // 股票持仓信息
 export interface StockPosition {
   id?: number;
   code: string;
   name: string;
   buy_price: number;
-  buy_date: string;
   current_price?: number;
   highest_price_since_buy?: number;
   profit_threshold_level1_alerted: boolean;
   profit_threshold_level2_alerted: boolean;
   loss_threshold_alerted: boolean;
   profit_drawdown_half_alerted: boolean;
+  profit_threshold1?: ThresholdType;
+  profit_threshold2?: ThresholdType;
+  loss_threshold?: ThresholdType;
   created_at?: string;
   updated_at?: string;
 }

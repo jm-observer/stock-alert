@@ -33,40 +33,48 @@ impl AlertEngine {
         let pnl_ratio = position.pnl_ratio();
         let max_profit_ratio = position.max_profit_ratio();
         let current_price = position.current_price;
+        let buy_price = position.buy_price;
 
         let mut alerts = Vec::new();
 
-        let profit_threshold_1 = self.config.profit_thresholds[1] as f64 / 100.0;
-        let profit_threshold_0 = self.config.profit_thresholds[0] as f64 / 100.0;
-        let loss_threshold = self.config.loss_threshold as f64 / 100.0;
-
-        if pnl_ratio >= profit_threshold_1 && !position.profit_threshold_level2_alerted {
+        // 检查盈利阈值2级（使用持仓的阈值）
+        if position.profit_threshold2.is_triggered(buy_price, current_price, true)
+            && !position.profit_threshold_level2_alerted
+        {
             alerts.push(AlertEvent {
                 code: code.clone(),
                 name: position.name.clone(),
-                rule: AlertRule::ProfitThreshold(self.config.profit_thresholds[1]),
+                rule: AlertRule::ProfitThreshold(position.profit_threshold2.clone()),
                 current_price,
                 pnl_ratio: pnl_ratio,
                 max_profit_ratio,
                 timestamp: chrono::Utc::now(),
             });
             position.profit_threshold_level2_alerted = true;
-        } else if pnl_ratio >= profit_threshold_0 && !position.profit_threshold_level1_alerted {
+        }
+        // 检查盈利阈值1级（使用持仓的阈值）
+        else if position.profit_threshold1.is_triggered(buy_price, current_price, true)
+            && !position.profit_threshold_level1_alerted
+        {
             alerts.push(AlertEvent {
                 code: code.clone(),
                 name: position.name.clone(),
-                rule: AlertRule::ProfitThreshold(self.config.profit_thresholds[0]),
+                rule: AlertRule::ProfitThreshold(position.profit_threshold1.clone()),
                 current_price,
                 pnl_ratio: pnl_ratio,
                 max_profit_ratio,
                 timestamp: chrono::Utc::now(),
             });
             position.profit_threshold_level1_alerted = true;
-        } else if (-pnl_ratio) >= loss_threshold && !position.loss_threshold_alerted {
+        }
+        // 检查亏损阈值（使用持仓的阈值）
+        else if position.loss_threshold.is_triggered(buy_price, current_price, false)
+            && !position.loss_threshold_alerted
+        {
             alerts.push(AlertEvent {
                 code: code.clone(),
                 name: position.name.clone(),
-                rule: AlertRule::LossThreshold(self.config.loss_threshold),
+                rule: AlertRule::LossThreshold(position.loss_threshold.clone()),
                 current_price,
                 pnl_ratio: -pnl_ratio,
                 max_profit_ratio,

@@ -5,9 +5,10 @@ import "./StockCard.css";
 interface StockCardProps {
   stock: StockPosition;
   onDelete: (code: string) => void;
+  onEdit: (stock: StockPosition) => void;
 }
 
-export default function StockCard({ stock, onDelete }: StockCardProps) {
+export default function StockCard({ stock, onDelete, onEdit }: StockCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const pnlRatio = stock.current_price
@@ -20,13 +21,17 @@ export default function StockCard({ stock, onDelete }: StockCardProps) {
 
   const pnlColor = pnlRatio === null ? "#999" : pnlRatio >= 0 ? "#f5222d" : "#52c41a";
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "N/A";
-    return dateStr.split("T")[0];
-  };
-
   const formatPrice = (price?: number) => {
     return price !== undefined ? price.toFixed(2) : "N/A";
+  };
+
+  const formatThreshold = (threshold?: { type: string; value: number }) => {
+    if (!threshold) return "N/A";
+    if (threshold.type === "Ratio") {
+      return `${threshold.value}%`;
+    } else {
+      return `¥${threshold.value.toFixed(2)}`;
+    }
   };
 
   return (
@@ -37,7 +42,13 @@ export default function StockCard({ stock, onDelete }: StockCardProps) {
           <h3>{stock.name}</h3>
         </div>
         <div className="stock-actions">
-    
+          <button
+            className="btn-edit"
+            onClick={() => onEdit(stock)}
+            style={{ marginRight: "8px" }}
+          >
+            编辑
+          </button>
           <button
             className="btn-delete"
             onClick={() => {
@@ -57,10 +68,6 @@ export default function StockCard({ stock, onDelete }: StockCardProps) {
         <div className="stock-info-row">
           <span className="label">买入价:</span>
           <span className="value">¥{formatPrice(stock.buy_price)}</span>
-        </div>
-        <div className="stock-info-row">
-          <span className="label">买入日期:</span>
-          <span className="value">{formatDate(stock.buy_date)}</span>
         </div>
         <div className="stock-info-row">
           <span className="label">当前价:</span>
@@ -84,6 +91,18 @@ export default function StockCard({ stock, onDelete }: StockCardProps) {
             </span>
           </div>
         )}
+        <div className="stock-info-row">
+          <span className="label">盈利阈值1级:</span>
+          <span className="value">{formatThreshold(stock.profit_threshold1)}</span>
+        </div>
+        <div className="stock-info-row">
+          <span className="label">盈利阈值2级:</span>
+          <span className="value">{formatThreshold(stock.profit_threshold2)}</span>
+        </div>
+        <div className="stock-info-row">
+          <span className="label">亏损阈值:</span>
+          <span className="value">{formatThreshold(stock.loss_threshold)}</span>
+        </div>
       </div>
 
       <div className="stock-card-footer">
