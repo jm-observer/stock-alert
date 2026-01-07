@@ -3,8 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 import StockCard from "./components/StockCard";
 import AddStockModal from "./components/AddStockModal";
 import ConfigModal from "./components/ConfigModal";
+import AlertModal from "./components/AlertModal";
 import { api } from "./api";
-import type { StockPosition } from "./types";
+import type { StockPosition, AlertEvent, StockUpdateEvent } from "./types";
 import "./App.css";
 
 function App() {
@@ -12,16 +13,20 @@ function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [currentAlert, setCurrentAlert] = useState<AlertEvent | null>(null);
 
   // 加载股票列表
   const loadStocks = async () => {
+    console.log("[App] 开始加载股票列表...");
     try {
       const data = await api.listStocks();
+      console.log("[App] ✅ 股票列表加载成功:", data);
       setStocks(data);
     } catch (error) {
-      console.error("加载股票列表失败:", error);
+      console.error("[App] ❌ 加载股票列表失败:", error);
     } finally {
       setLoading(false);
+      console.log("[App] 加载状态设置为完成");
     }
   };
 
@@ -29,20 +34,63 @@ function App() {
     loadStocks();
 
     // 监听股票更新事件
-    const unlisten = listen<StockPosition>("stock-update", (event) => {
+    console.log("[App] 开始注册股票更新事件监听器...");
+    const unlistenStockUpdatePromise = listen<StockUpdateEvent>("stock-update", (event) => {
+      console.log("[App] ✅ 收到股票更新事件:", event);
+      console.log("[App] 事件数据:", event.payload);
+      const position = event.payload.position;
+      console.log("[App] 股票持仓信息:", position);
       setStocks((prev) => {
-        const index = prev.findIndex((s) => s.code === event.payload.code);
+        console.log("[App] 当前股票列表:", prev);
+        const index = prev.findIndex((s) => s.code === position.code);
+        console.log("[App] 找到股票索引:", index, "股票代码:", position.code);
         if (index >= 0) {
           const updated = [...prev];
-          updated[index] = event.payload;
+          updated[index] = position;
+          console.log("[App] ✅ 更新后的股票列表:", updated);
           return updated;
         }
+        console.log("[App] ⚠️ 未找到匹配的股票，保持原列表");
         return prev;
       });
     });
 
+    unlistenStockUpdatePromise
+      .then(() => {
+        console.log("[App] ✅ 股票更新事件监听器注册成功");
+      })
+      .catch((error) => {
+        console.error("[App] ❌ 注册股票更新事件监听器失败:", error);
+      });
+
+    // 监听告警事件
+    console.log("[App] 开始注册告警事件监听器...");
+    const unlistenAlertPromise = listen<AlertEvent>("stock-alert", (event) => {
+      console.log("[App] ✅ 收到告警事件:", event);
+      console.log("[App] 告警数据:", event.payload);
+      setCurrentAlert(event.payload);
+    });
+
+    unlistenAlertPromise
+      .then(() => {
+        console.log("[App] ✅ 告警事件监听器注册成功");
+      })
+      .catch((error) => {
+        console.error("[App] ❌ 注册告警事件监听器失败:", error);
+      });
+
     return () => {
-      unlisten.then((fn) => fn());
+      console.log("[App] 清理事件监听器...");
+      unlistenStockUpdatePromise
+        .then((fn) => {
+          if (fn) fn();
+        })
+        .catch((e) => console.error("[App] 清理股票更新监听器失败:", e));
+      unlistenAlertPromise
+        .then((fn) => {
+          if (fn) fn();
+        })
+        .catch((e) => console.error("[App] 清理告警监听器失败:", e));
     };
   }, []);
 
@@ -59,16 +107,7 @@ function App() {
     }
   };
 
-  // 切换启用状态
-  const handleToggleEnabled = async (code: string, enabled: boolean) => {
-    try {
-      await api.setStockEnabled(code, enabled);
-      await loadStocks();
-    } catch (error) {
-      console.error("更新股票状态失败:", error);
-      alert("更新股票状态失败");
-    }
-  };
+
 
   if (loading) {
     return (
@@ -104,7 +143,6 @@ function App() {
                 key={stock.code}
                 stock={stock}
                 onDelete={handleDelete}
-                onToggleEnabled={handleToggleEnabled}
               />
             ))}
           </div>
@@ -127,6 +165,13 @@ function App() {
           onSuccess={() => {
             setShowConfigModal(false);
           }}
+        />
+      )}
+
+      {currentAlert && (
+        <AlertModal
+          alert={currentAlert}
+          onClose={() => setCurrentAlert(null)}
         />
       )}
     </div>

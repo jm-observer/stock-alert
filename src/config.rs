@@ -77,15 +77,27 @@ pub struct QuoteSseSourceConfig {
     /// SSE端点URL模板
     #[serde(default = "default_sse_url_template")]
     pub sse_url_template: String,
-    /// SSE字段列表
+    /// SSE字段列表（旧字段，保留兼容性）
     #[serde(default = "default_sse_fields")]
     pub sse_fields: String,
+    /// SSE字段1（fields1）
+    #[serde(default = "default_sse_fields1")]
+    pub sse_fields1: String,
+    /// SSE字段2（fields2）
+    #[serde(default = "default_sse_fields2")]
+    pub sse_fields2: String,
     /// SSE推送间隔（毫秒）
     #[serde(default = "default_sse_mpi")]
     pub sse_mpi: u64,
     /// SSE token
     #[serde(default = "default_sse_ut")]
     pub sse_ut: String,
+    /// SSE fltt参数
+    #[serde(default = "default_sse_fltt")]
+    pub sse_fltt: u64,
+    /// SSE pos参数
+    #[serde(default = "default_sse_pos")]
+    pub sse_pos: i64,
     /// 是否启用轮询兜底
     #[serde(default = "default_true")]
     pub enable_polling_fallback: bool,
@@ -114,12 +126,28 @@ fn default_sse_fields() -> String {
     "f1,f2,f3,f4".to_string()
 }
 
+fn default_sse_fields1() -> String {
+    "f1,f2,f3,f4".to_string()
+}
+
+fn default_sse_fields2() -> String {
+    "f51,f52,f53,f54,f55".to_string()
+}
+
 fn default_sse_mpi() -> u64 {
     1000
 }
 
 fn default_sse_ut() -> String {
     "bd1d9ddb04089700cf9c27f6f7426281".to_string()
+}
+
+fn default_sse_fltt() -> u64 {
+    2
+}
+
+fn default_sse_pos() -> i64 {
+    -11
 }
 
 fn default_polling_interval() -> u64 {
@@ -151,8 +179,12 @@ impl Default for QuoteSourceConfig {
         Self::Sse(QuoteSseSourceConfig {
             sse_url_template: default_sse_url_template(),
             sse_fields: default_sse_fields(),
+            sse_fields1: default_sse_fields1(),
+            sse_fields2: default_sse_fields2(),
             sse_mpi: default_sse_mpi(),
             sse_ut: default_sse_ut(),
+            sse_fltt: default_sse_fltt(),
+            sse_pos: default_sse_pos(),
             enable_polling_fallback: true,
             polling_interval: default_polling_interval(),
             polling_url_template: default_polling_url_template(),

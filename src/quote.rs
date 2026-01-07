@@ -60,12 +60,15 @@ impl SSESource {
         let secid = format!("{}.{}", market_code, code);
 
         format!(
-            "{}?fields={}&mpi={}&invt=2&fltt=1&secid={}&ut={}&dect=1&wbp2u=|0|0|0|web",
+            "{}?fields1={}&fields2={}&mpi={}&dect=1&ut={}&fltt={}&pos={}&secid={}&wbp2u=|0|0|0|web",
             self.config.sse_url_template,
-            self.config.sse_fields,
+            self.config.sse_fields1,
+            self.config.sse_fields2,
             self.config.sse_mpi,
-            secid,
-            self.config.sse_ut
+            self.config.sse_ut,
+            self.config.sse_fltt,
+            self.config.sse_pos,
+            secid
         )}
 
     /// 解析单条detail记录
@@ -90,6 +93,8 @@ impl QuoteSource for SSESource {
         let config = self.config.clone();
         let sse_source = Arc::new(self.clone());
         let url = sse_source.build_sse_url(&code);
+
+        info!("SSE URL: {}", url);
 
         // 启动SSE连接任务
         tokio::spawn(async move {

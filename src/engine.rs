@@ -25,7 +25,7 @@ impl AlertEngine {
     /// 处理价格更新，返回触发的告警事件列表
     pub fn process_update(
         &mut self,
-        position: &mut StockPosition,
+        position: &mut StockPosition
     ) -> Vec<AlertEvent> {
         let code = &position.code;
         // let state = self.states.entry(code.clone()).or_insert_with(AlertState::new);

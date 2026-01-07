@@ -61,7 +61,7 @@ cargo build --release
 sqlite3 stock_alert.db
 
 -- 添加股票持仓
-INSERT INTO stock_positions (code, name, buy_price, buy_date, enabled)
+INSERT INTO stock_positions (code, name, buy_price, buy_date)
 VALUES ('000001', '平安银行', 10.50, '2024-01-01', 1);
 
 -- 查看所有持仓

@@ -5,7 +5,6 @@ import "./StockCard.css";
 interface StockCardProps {
   stock: StockPosition;
   onDelete: (code: string) => void;
-  onToggleEnabled: (code: string, enabled: boolean) => void;
 }
 
 export default function StockCard({ stock, onDelete }: StockCardProps) {
@@ -31,7 +30,7 @@ export default function StockCard({ stock, onDelete }: StockCardProps) {
   };
 
   return (
-    <div className={`stock-card ${!stock.enabled ? "disabled" : ""}`}>
+    <div className={`stock-card`}>
       <div className="stock-card-header">
         <div className="stock-title">
           <span className="stock-code">{stock.code}</span>

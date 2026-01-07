@@ -2,7 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_tauri;
-mod cli;
 mod commands;
 mod config;
 mod engine;
@@ -11,7 +10,6 @@ mod notify;
 mod quote;
 mod scheduler;
 mod storage;
-mod app;
 
 use app_tauri::TauriApp;
 use commands::*;
@@ -32,6 +30,7 @@ fn main() -> anyhow::Result<()> {
 
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // 启动监控循环
             let app_handle = app.handle().clone();

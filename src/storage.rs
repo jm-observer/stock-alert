@@ -89,7 +89,7 @@ impl Storage {
         let rows = sqlx::query(
             r#"
             SELECT id, code, name, buy_price, buy_date, current_price, 
-                   highest_price_since_buy, enabled, profit_threshold_level1_alerted, 
+                   highest_price_since_buy, profit_threshold_level1_alerted, 
                    profit_threshold_level2_alerted, loss_threshold_alerted, 
                    profit_drawdown_half_alerted, created_at, updated_at
             FROM stock_positions
@@ -223,7 +223,7 @@ impl Storage {
         let row = sqlx::query(
             r#"
             SELECT id, code, name, buy_price, buy_date, current_price, 
-                   highest_price_since_buy, enabled, profit_threshold_level1_alerted, 
+                   highest_price_since_buy, profit_threshold_level1_alerted, 
                    profit_threshold_level2_alerted, loss_threshold_alerted, 
                    profit_drawdown_half_alerted, created_at, updated_at
             FROM stock_positions

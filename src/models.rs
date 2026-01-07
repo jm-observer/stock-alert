@@ -37,12 +37,13 @@ impl StockPosition {
         (self.highest_price_since_buy - self.buy_price) / self.buy_price
     }
 
-    /// 更新当前价格，同时更新最高价
+    /// 更新当前价格，同时更新最高价和更新时间
     pub fn update_price(&mut self, price: f64) {
         self.current_price = price;
         if price > self.highest_price_since_buy {
             self.highest_price_since_buy = price;
         }
+        self.updated_at = Some(chrono::Local::now().naive_local());
     }
 }
 

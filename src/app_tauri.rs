@@ -26,6 +26,19 @@ pub struct StockUpdateEvent {
     pub position: StockPosition,
 }
 
+/// 告警事件（用于发送到前端）
+#[derive(Debug, Clone, Serialize)]
+pub struct AlertEventPayload {
+    pub code: String,
+    pub name: String,
+    pub rule: String, // "profit_threshold", "loss_threshold", "profit_drawdown_half"
+    pub rule_value: Option<i32>, // 阈值百分比（仅用于 profit_threshold 和 loss_threshold）
+    pub current_price: f64,
+    pub pnl_ratio: f64, // 盈亏比例（小数，如 0.1 表示 10%）
+    pub max_profit_ratio: f64, // 最高盈利比例（小数）
+    pub timestamp: String, // ISO 8601 格式的时间字符串
+}
+
 #[derive(Clone)]
 /// Tauri模式下的应用主结构
 pub struct TauriApp {
@@ -34,7 +47,7 @@ pub struct TauriApp {
     storage: Arc<Storage>,
     scheduler: TradingScheduler,
     engine: Arc<Mutex<AlertEngine>>,
-    notifier: Arc<Notifier>,
+    notifier: Arc<RwLock<Notifier>>,
     quote_source: Arc<dyn QuoteSource>,
     is_test: bool,
     tx: mpsc::UnboundedSender<Result<Quote>>,
@@ -67,7 +80,7 @@ impl TauriApp {
         let storage = Arc::new(Storage::new(&db_path).await?);
         let scheduler = TradingScheduler::new(config.trading_hours.clone(), &config.timezone)?;
         let engine = Arc::new(Mutex::new(AlertEngine::new(config.alert.clone())));
-        let notifier = Arc::new(Notifier::new(config.notify.clone())?);
+        let notifier = Arc::new(RwLock::new(Notifier::new(config.notify.clone())?));
         let is_test = config.quote_source.is_test();
         let quote_source = create_quote_source(config.quote_source.clone())?;
 
@@ -250,40 +263,63 @@ impl TauriApp {
             if !alerts.is_empty() {
                 info!("触发告警: {} 共 {} 条", quote.code, alerts.len());
             }
-            let config = self.config.read().await.clone();
+            // let config = self.config.read().await.clone();
             for alert in alerts {
-                info!(
-                    "告警: {} {} 规则={:?} 当前价={:.2} 盈亏比例={:.2}%",
-                    alert.code,
-                    alert.name,
-                    alert.rule,
-                    alert.current_price,
-                    alert.pnl_ratio * 100.0
-                );
+            //     info!(
+            //         "告警: {} {} 规则={:?} 当前价={:.2} 盈亏比例={:.2}%",
+            //         alert.code,
+            //         alert.name,
+            //         alert.rule,
+            //         alert.current_price,
+            //         alert.pnl_ratio * 100.0
+            //     );
 
-                // 标记对应的报警开关
-                match alert.rule {
-                    crate::models::AlertRule::ProfitThreshold(threshold) => {
-                        // 根据阈值判断是1级还是2级
-                        if let Some(first_threshold) = config.alert.profit_thresholds.first() {
-                            if threshold == *first_threshold {
-                                position.profit_threshold_level1_alerted = true;
-                            } else if config.alert.profit_thresholds.len() > 1
-                                && threshold == config.alert.profit_thresholds[1]
-                            {
-                                position.profit_threshold_level2_alerted = true;
-                            }
-                        }
-                    }
-                    crate::models::AlertRule::LossThreshold(_threshold) => {
-                        position.loss_threshold_alerted = true;
-                    }
-                    crate::models::AlertRule::ProfitDrawdownHalf => {
-                        position.profit_drawdown_half_alerted = true;
-                    }
+            //     // 标记对应的报警开关
+            //     match alert.rule {
+            //         crate::models::AlertRule::ProfitThreshold(threshold) => {
+            //             // 根据阈值判断是1级还是2级
+            //             if let Some(first_threshold) = config.alert.profit_thresholds.first() {
+            //                 if threshold == *first_threshold {
+            //                     position.profit_threshold_level1_alerted = true;
+            //                 } else if config.alert.profit_thresholds.len() > 1
+            //                     && threshold == config.alert.profit_thresholds[1]
+            //                 {
+            //                     position.profit_threshold_level2_alerted = true;
+            //                 }
+            //             }
+            //         }
+            //         crate::models::AlertRule::LossThreshold(_threshold) => {
+            //             position.loss_threshold_alerted = true;
+            //         }
+            //         crate::models::AlertRule::ProfitDrawdownHalf => {
+            //             position.profit_drawdown_half_alerted = true;
+            //         }
+            //     }
+
+                // 发送告警事件到前端
+                let alert_payload = AlertEventPayload {
+                    code: alert.code.clone(),
+                    name: alert.name.clone(),
+                    rule: match alert.rule {
+                        crate::models::AlertRule::ProfitThreshold(_) => "profit_threshold".to_string(),
+                        crate::models::AlertRule::LossThreshold(_) => "loss_threshold".to_string(),
+                        crate::models::AlertRule::ProfitDrawdownHalf => "profit_drawdown_half".to_string(),
+                    },
+                    rule_value: match alert.rule {
+                        crate::models::AlertRule::ProfitThreshold(t) => Some(t),
+                        crate::models::AlertRule::LossThreshold(t) => Some(t),
+                        crate::models::AlertRule::ProfitDrawdownHalf => None,
+                    },
+                    current_price: alert.current_price,
+                    pnl_ratio: alert.pnl_ratio,
+                    max_profit_ratio: alert.max_profit_ratio,
+                    timestamp: alert.timestamp.to_rfc3339(),
+                };
+                if let Err(e) = self.app_handle.emit("stock-alert", &alert_payload) {
+                    error!("发送告警事件到前端失败: {}", e);
                 }
 
-                if let Err(e) = self.notifier.handle_alert(&alert).await {
+                if let Err(e) = self.notifier.read().await.handle_alert(&alert).await {
                     error!("处理告警失败: {}", e);
                 }
             }
@@ -332,8 +368,8 @@ impl TauriApp {
             profit_threshold_level2_alerted: false,
             loss_threshold_alerted: false,
             profit_drawdown_half_alerted: false,
-            created_at: None,
-            updated_at: None,
+            created_at: Some(chrono::Local::now().naive_local()),
+            updated_at: Some(chrono::Local::now().naive_local()),
         };
 
         let id = self.storage
@@ -381,6 +417,7 @@ impl TauriApp {
         config.notify.sound_file = sound_file.map(PathBuf::from);
         let config_clone = config.clone();
         drop(config);
+        self.notifier.write().await.config = config_clone.notify.clone();
         self.save_config(config_clone).await
     }
 

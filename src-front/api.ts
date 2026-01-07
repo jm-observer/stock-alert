@@ -27,11 +27,6 @@ export const api = {
     return invoke("update_stock", { code, buyPrice, buyDate });
   },
 
-  // 启用/禁用股票
-  setStockEnabled: async (code: string, enabled: boolean): Promise<boolean> => {
-    return invoke("set_stock_enabled", { code, enabled });
-  },
-
   // 获取所有股票
   listStocks: async (): Promise<StockPosition[]> => {
     return invoke("list_stocks");

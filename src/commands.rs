@@ -7,6 +7,7 @@ use crate::storage::Storage;
 use anyhow::Result;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
+use log::debug;
 
 /// 获取应用数据目录路径
 pub fn get_app_data_dir(app: &AppHandle) -> Result<PathBuf> {
@@ -74,6 +75,7 @@ pub async fn get_config(app: AppHandle) -> Result<Config, String> {
 /// 保存配置
 #[tauri::command]
 pub async fn save_config(app: AppHandle, config: Config) -> Result<(), String> {
+    debug!("保存配置: {:?}", config);
     let config_path = get_config_path(&app).map_err(|e| e.to_string())?;
     config
         .save(&config_path)
@@ -87,6 +89,7 @@ pub async fn update_alert_thresholds(
     profit_thresholds: [i32; 2],
     loss_threshold: i32,
 ) -> Result<(), String> {
+    debug!("更新告警阈值: {:?}, {:?}", profit_thresholds, loss_threshold);
     tauri_app
         .inner()
         .update_alert_thresholds(profit_thresholds, loss_threshold)
@@ -100,6 +103,7 @@ pub async fn update_sound_file(
     tauri_app: State<'_, TauriApp>,
     sound_file: Option<String>,
 ) -> Result<(), String> {
+    debug!("更新声音文件: {:?}", sound_file);
     tauri_app.inner().update_sound_file(sound_file)
         .await
         .map_err(|e| e.to_string())

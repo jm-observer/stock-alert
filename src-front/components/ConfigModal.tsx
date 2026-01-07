@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { api } from "../api";
 import type { Config } from "../types";
 import "./Modal.css";
@@ -91,6 +92,34 @@ export default function ConfigModal({ onClose, onSuccess }: ConfigModalProps) {
     });
   };
 
+  const handleSelectSoundFile = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "音频文件",
+            extensions: ["wav", "mp3", "ogg", "m4a", "aac", "flac"],
+          },
+        ],
+      });
+
+      if (selected && typeof selected === "string") {
+        updateSoundFile(selected);
+      } else if (selected === null) {
+        // 用户取消了选择
+        return;
+      }
+    } catch (error) {
+      console.error("选择音频文件失败:", error);
+      setError("选择音频文件失败");
+    }
+  };
+
+  const handleClearSoundFile = () => {
+    updateSoundFile("");
+  };
+
   if (loading) {
     return (
       <div className="modal-overlay" onClick={onClose}>
@@ -158,13 +187,35 @@ export default function ConfigModal({ onClose, onSuccess }: ConfigModalProps) {
           <div className="config-section">
             <h3>通知设置</h3>
             <div className="form-group">
-              <label>声音文件路径</label>
-              <input
-                type="text"
-                value={config.notify.sound_file || ""}
-                onChange={(e) => updateSoundFile(e.target.value)}
-                placeholder="留空表示使用系统提示音"
-              />
+              <label>声音文件</label>
+              <div className="sound-file-selector">
+                <input
+                  type="text"
+                  value={config.notify.sound_file || ""}
+                  onChange={(e) => updateSoundFile(e.target.value)}
+                  placeholder="留空表示使用系统提示音"
+                  readOnly
+                  className="sound-file-input"
+                />
+                <div className="sound-file-buttons">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={handleSelectSoundFile}
+                  >
+                    选择文件
+                  </button>
+                  {config.notify.sound_file && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      onClick={handleClearSoundFile}
+                    >
+                      清除
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
