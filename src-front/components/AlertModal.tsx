@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import type { AlertEvent } from "../types";
 import "./Modal.css";
 
@@ -8,14 +7,6 @@ interface AlertModalProps {
 }
 
 export default function AlertModal({ alert, onClose }: AlertModalProps) {
-  // 自动关闭：5秒后自动关闭
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [onClose]);
 
   // 获取告警规则描述
   const getRuleDescription = (): string => {
@@ -43,8 +34,8 @@ export default function AlertModal({ alert, onClose }: AlertModalProps) {
   };
 
   return (
-    <div className="modal-overlay alert-overlay" onClick={onClose}>
-      <div className="modal-content alert-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay alert-overlay">
+      <div className="modal-content alert-content">
         <div className="alert-header">
           <div className="alert-icon">⚠️</div>
           <h2 className="alert-title">股票告警</h2>

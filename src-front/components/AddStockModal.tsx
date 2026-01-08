@@ -98,8 +98,8 @@ export default function AddStockModal({ onClose, onSuccess }: AddStockModalProps
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-content">
         <div className="modal-header">
           <h2>添加股票</h2>
           <button className="modal-close" onClick={onClose}>

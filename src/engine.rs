@@ -76,7 +76,7 @@ impl AlertEngine {
                 name: position.name.clone(),
                 rule: AlertRule::LossThreshold(position.loss_threshold.clone()),
                 current_price,
-                pnl_ratio: -pnl_ratio,
+                pnl_ratio: pnl_ratio,
                 max_profit_ratio,
                 timestamp: chrono::Utc::now(),
             });
